@@ -1,0 +1,52 @@
+# Unity用 .gitignore
+# ビルド・キャッシュ・ユーザー設定など不要ファイルを除外
+
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# IDE関連
+.vs/
+.idea/
+
+# Unity自動生成ファイル
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.bak
+*.swp
+*.lock
+*.log
+*.orig
+*.cache
+*.db
+
+# Unity Asset/Prefs/Settings
+*.asset
+*.prefs
+
+# その他
+.DS_Store
+Thumbs.db
+
+# Package Manager
+Packages/packages-lock.json
+
+# Visual Studio Code
+.vscode/
