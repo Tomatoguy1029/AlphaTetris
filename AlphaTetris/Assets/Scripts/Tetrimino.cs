@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace AlphaTetris {
   public class Tetrimino {
-    public readonly int[,] Shape;
+    public int[,] Shape;
 
     // コンストラクタ
     private Tetrimino(int[,] shape) {
@@ -11,12 +11,13 @@ namespace AlphaTetris {
     }
 
     // テトリミノのランダム生成
+    // TODO 完全にランダムなので改善の余地あり
     public static Tetrimino GetRandom() {
       var i = UnityEngine.Random.Range(0, Shapes.GetLength(0));
       return new Tetrimino(Shapes[i]);
     }
 
-    // 盤面の二次元配列を取得
+    // ミノのブロックの相対座標を取得
     public static IEnumerable<Vector2Int> GetCells(int[,] s) {
       for (var y = 0; y < s.GetLength(0); y++) {
         for (int x = 0; x < s.GetLength(1); x++) {
@@ -61,6 +62,7 @@ namespace AlphaTetris {
         { 0, 0, 0, 0 },
         { 0, 0, 0, 0 }
       },
+
       // O
       new int[,] {
         { 0, 0, 0, 0 },
@@ -68,6 +70,7 @@ namespace AlphaTetris {
         { 0, 1, 1, 0 },
         { 0, 0, 0, 0 }
       },
+
       // S
       new int[,] {
         { 0, 0, 0, 0 },
