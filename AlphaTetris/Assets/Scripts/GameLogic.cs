@@ -78,7 +78,7 @@ namespace AlphaTetris {
     // テトリミノを落下させる
     private void SpawnMino() {
       _currentMino = Tetrimino.GetRandom();
-      _currentPos = new Vector2Int(width / 2 - 2, height - 3);
+      _currentPos = new Vector2Int(width / 2 - 2, height - 2);
 
       // ゲームオーバー処理
       if (!IsValidPosition(_currentPos, _currentMino.Shape)) {
@@ -188,8 +188,13 @@ namespace AlphaTetris {
         var y = pos.y + cell.y;
 
         // 枠内かどうか
-        if (x < 0 || x >= width || y < 0 || y >= height) {
+        if (x < 0 || x >= width || y < 0 ) {
           return false;
+        }
+
+        // 上にはみ出した場合はスキップ
+        if (y >= height) {
+          continue;
         }
 
         // すでにブロックがあるかどうか
