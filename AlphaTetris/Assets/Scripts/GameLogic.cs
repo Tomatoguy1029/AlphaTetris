@@ -5,13 +5,14 @@ using UnityEngine.InputSystem;
 
 namespace AlphaTetris {
   public class GameLogic : MonoBehaviour {
+    public enum GameState {
+      PreGame,
+      Playing,
+      GameOver
+    }
+
     public int width = 10;
     public int height = 20;
-
-    public GameLogic(int width, int height) {
-      this.width = width;
-      this.height = height;
-    }
 
     //　状態
     private int[,] _board;
@@ -23,6 +24,7 @@ namespace AlphaTetris {
     public int Score { get; private set; }
     public int Level { get; private set; }
     public int LinesCleared { get; private set; }
+    public GameState CurrentState { get; private set; }
 
     // イベント
     public event Action OnBoardUpdated;
@@ -36,45 +38,82 @@ namespace AlphaTetris {
     private void Start() {
       _board = new int[height, width];
       RenderBoard = new int[height, width];
-      _fallTimer = 0f;
 
-      SpawnMino();
-      UpdateRenderedBoard();
+      OnGameOver += () => {
+        Debug.Log("GameOver");
+        CurrentState = GameState.GameOver;
+      };
 
-      // TODO デバッグ用
-      OnGameOver += () => Debug.Log("GameOver");
-      PrintBoardToConsole();
+      CurrentState = GameState.PreGame;
+      Debug.Log("Push Space button to play");
     }
 
     private void Update() {
-      _fallTimer += Time.deltaTime;
-      if (_fallTimer >= _fallInterval) {
-        // 経過時間がfallIntervalを超えたらミノを1マス落下
-        Step();
-        _fallTimer = 0f;
-
-        // TODO デバッグ用
-        PrintBoardToConsole();
+      if (CurrentState != GameState.Playing) {
+        return;
       }
 
-      // TODO デバッグ用
-      var kb = Keyboard.current;
-      if (kb.leftArrowKey.wasPressedThisFrame) MoveLeft();
-      if (kb.rightArrowKey.wasPressedThisFrame) MoveRight();
-      if (kb.downArrowKey.wasPressedThisFrame) SoftDrop();
-      if (kb.zKey.wasPressedThisFrame) RotateLeft();
-      if (kb.xKey.wasPressedThisFrame) RotateRight();
+      // 毎フレームの落下処理
+      _fallTimer += Time.deltaTime;
+      if (_fallTimer >= _fallInterval) {
+        Step();
+        _fallTimer = 0f;
+        PrintBoardToConsole();
+      }
     }
 
+    // ======API======
+    //　ゲーム開始
+    public void StartGame() {
+      if (CurrentState != GameState.PreGame) {
+        return;
+      }
 
-    // API、UI側で使用
-    public void MoveLeft() => TryMove(Vector2Int.left);
-    public void MoveRight() => TryMove(Vector2Int.right);
-    public void SoftDrop() => Step();
-    public void RotateRight() => Rotate(1);
-    public void RotateLeft() => Rotate(-1);
+      // 初期化
+      for (var y = 0; y < height; y++) {
+        for (var x = 0; x < width; x++) {
+          _board[y, x] = 0;
+        }
+      }
 
-    // =====内部処理=====
+      Score = 0;
+      Level = 0;
+      LinesCleared = 0;
+      _fallTimer = 0f;
+      _fallInterval = 1f;
+
+      // ゲーム開始
+      CurrentState = GameState.Playing;
+      SpawnMino();
+      PrintBoardToConsole();
+    }
+
+    public void MoveLeft() {
+      if (CurrentState != GameState.Playing) return;
+      TryMove(Vector2Int.left);
+    }
+
+    public void MoveRight() {
+      if (CurrentState != GameState.Playing) return;
+      TryMove(Vector2Int.right);
+    }
+
+    public void SoftDrop() {
+      if (CurrentState != GameState.Playing) return;
+      Step();
+    }
+
+    public void RotateRight() {
+      if (CurrentState != GameState.Playing) return;
+      Rotate(1);
+    }
+
+    public void RotateLeft() {
+      if (CurrentState != GameState.Playing) return;
+      Rotate(-1);
+    }
+
+    // ======内部処理======
     // テトリミノを落下させる
     private void SpawnMino() {
       _currentMino = Tetrimino.GetRandom();
@@ -83,7 +122,6 @@ namespace AlphaTetris {
       // ゲームオーバー処理
       if (!IsValidPosition(_currentPos, _currentMino.Shape)) {
         OnGameOver?.Invoke();
-        enabled = false;
       }
 
       UpdateRenderedBoard();
@@ -188,7 +226,7 @@ namespace AlphaTetris {
         var y = pos.y + cell.y;
 
         // 枠内かどうか
-        if (x < 0 || x >= width || y < 0 ) {
+        if (x < 0 || x >= width || y < 0) {
           return false;
         }
 
