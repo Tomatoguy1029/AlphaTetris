@@ -17,7 +17,7 @@ namespace AlphaTetris {
       return new Tetrimino(Shapes[i]);
     }
 
-    // ミノのブロックの相対座標を取得
+    // ミノのブロックの相対座標を取得(左下基準)
     public static IEnumerable<Vector2Int> GetCells(int[,] s) {
       for (var y = 0; y < s.GetLength(0); y++) {
         for (int x = 0; x < s.GetLength(1); x++) {
