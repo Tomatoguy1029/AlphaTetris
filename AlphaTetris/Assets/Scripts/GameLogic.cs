@@ -1,5 +1,7 @@
 using System;
+using System.Text;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace AlphaTetris {
   public class GameLogic : MonoBehaviour {
@@ -9,8 +11,6 @@ namespace AlphaTetris {
     public GameLogic(int width, int height) {
       this.width = width;
       this.height = height;
-      _board = new int[width, height];
-      SpawnMino();
     }
 
     //　状態
@@ -34,10 +34,16 @@ namespace AlphaTetris {
     private const int LevelInterval = 10;
 
     private void Start() {
-      _board = new int[width, height];
-      RenderBoard = new int[width, height];
+      _board = new int[height, width];
+      RenderBoard = new int[height, width];
+      _fallTimer = 0f;
+
       SpawnMino();
       UpdateRenderedBoard();
+
+      // TODO デバッグ用
+      OnGameOver += () => Debug.Log("GameOver");
+      PrintBoardToConsole();
     }
 
     private void Update() {
@@ -46,8 +52,20 @@ namespace AlphaTetris {
         // 経過時間がfallIntervalを超えたらミノを1マス落下
         Step();
         _fallTimer = 0f;
+
+        // TODO デバッグ用
+        PrintBoardToConsole();
       }
+
+      // TODO デバッグ用
+      var kb = Keyboard.current;
+      if (kb.leftArrowKey.wasPressedThisFrame) MoveLeft();
+      if (kb.rightArrowKey.wasPressedThisFrame) MoveRight();
+      if (kb.downArrowKey.wasPressedThisFrame) SoftDrop();
+      if (kb.zKey.wasPressedThisFrame) RotateLeft();
+      if (kb.xKey.wasPressedThisFrame) RotateRight();
     }
+
 
     // API、UI側で使用
     public void MoveLeft() => TryMove(Vector2Int.left);
@@ -60,7 +78,7 @@ namespace AlphaTetris {
     // テトリミノを落下させる
     private void SpawnMino() {
       _currentMino = Tetrimino.GetRandom();
-      _currentPos = new Vector2Int(width / 2 - 2, height - 2);
+      _currentPos = new Vector2Int(width / 2 - 2, height - 3);
 
       // ゲームオーバー処理
       if (!IsValidPosition(_currentPos, _currentMino.Shape)) {
@@ -90,7 +108,7 @@ namespace AlphaTetris {
     // テトリミノを左右に移動
     private void TryMove(Vector2Int dir) {
       Vector2Int next = _currentPos + dir;
-      if (!IsValidPosition(next, _currentMino.Shape)) {
+      if (IsValidPosition(next, _currentMino.Shape)) {
         _currentPos = next;
       }
 
@@ -100,7 +118,7 @@ namespace AlphaTetris {
     // テトリミノを回転
     private void Rotate(int dir) {
       int[,] rotated = _currentMino.Rotate(dir);
-      if (!IsValidPosition(_currentPos, rotated)) {
+      if (IsValidPosition(_currentPos, rotated)) {
         _currentMino.Shape = rotated;
       }
 
@@ -119,7 +137,6 @@ namespace AlphaTetris {
     }
 
     // 一列揃った時に列を削除
-    //  TODO 現状だと一行ずつしか消えないので改善の余地あり
     private void ClearLines() {
       int cleared = 0;
       for (int y = 0; y < height; y++) {
@@ -133,7 +150,7 @@ namespace AlphaTetris {
 
         if (full) {
           cleared++;
-          for (var yy = y; yy < height; yy++) {
+          for (var yy = y; yy < height - 1; yy++) {
             for (var xx = 0; xx < width; xx++) {
               //　1行上をコピー
               _board[yy, xx] = _board[yy + 1, xx];
@@ -171,12 +188,12 @@ namespace AlphaTetris {
         var y = pos.y + cell.y;
 
         // 枠内かどうか
-        if (x < 0 || x > width || y < 0) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
           return false;
         }
 
         // すでにブロックがあるかどうか
-        if (y < height && _board[y, x] == 1) {
+        if (_board[y, x] == 1) {
           return false;
         }
       }
@@ -202,6 +219,34 @@ namespace AlphaTetris {
       }
 
       OnBoardUpdated?.Invoke();
+    }
+
+    // TODO デバッグ用
+    public void PrintBoardToConsole() {
+      var sb = new StringBuilder();
+      sb.AppendLine("\n======== TETRIS ========");
+
+      for (var y = height - 1; y >= 0; y--) {
+        for (var x = 0; x < width; x++) {
+          sb.Append(RenderBoard[y, x] switch {
+            0 => " .", // 0: 空白
+            1 => " ■", // 1: 固定されたブロック
+            2 => " □", // 2: 操作中のブロック
+            _ => " ?"
+          });
+        }
+
+        sb.AppendLine();
+      }
+
+      sb.AppendLine("----------------------");
+
+      sb.AppendLine($"Score: {Score}");
+      sb.AppendLine($"Level: {Level}");
+      sb.AppendLine($"Lines: {LinesCleared}");
+      sb.AppendLine("======================");
+
+      Debug.Log(sb.ToString());
     }
   }
 }
