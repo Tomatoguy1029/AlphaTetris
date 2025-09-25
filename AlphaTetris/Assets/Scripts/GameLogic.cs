@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -13,11 +14,16 @@ namespace AlphaTetris {
 
     public int width = 10;
     public int height = 20;
+    [SerializeField, Min(1)] private int _previewCount = 3;
 
     //　状態
     private int[,] _board;
     private Tetrimino _currentMino;
     private Vector2Int _currentPos;
+    private readonly Queue<Tetrimino> _nextQueue = new Queue<Tetrimino>();
+    private readonly List<Tetrimino> _nextPreview = new List<Tetrimino>();
+    private Tetrimino _holdMino;
+    private bool _hasHeldThisTurn;
 
     // プロパティ
     public int[,] RenderBoard { get; private set; }
@@ -25,6 +31,9 @@ namespace AlphaTetris {
     public int Level { get; private set; }
     public int LinesCleared { get; private set; }
     public GameState CurrentState { get; private set; }
+    public IReadOnlyList<Tetrimino> NextPreview => _nextPreview;
+    public Tetrimino HoldMino => _holdMino;
+    public bool CanHold => CurrentState == GameState.Playing && !_hasHeldThisTurn;
 
     // イベント
     public event Action OnBoardUpdated;
@@ -89,6 +98,7 @@ namespace AlphaTetris {
       _fallTimer = 0f;
       _fallInterval = 1f;
 
+      ResetQueuesAndHold();
       // ゲーム開始
       SetState(GameState.Playing);
       SpawnMino();
@@ -120,11 +130,46 @@ namespace AlphaTetris {
       Rotate(-1);
     }
 
+    public void Hold() {
+      if (!CanHold || _currentMino == null) {
+        return;
+      }
+
+      if (_holdMino == null) {
+        _holdMino = _currentMino.FreshClone();
+        _hasHeldThisTurn = true;
+        SpawnMino(false);
+        return;
+      }
+
+      var previous = _currentMino;
+      _currentMino = _holdMino.FreshClone();
+      _holdMino = previous.FreshClone();
+      _currentPos = GetSpawnPosition();
+      _hasHeldThisTurn = true;
+
+      if (!IsValidPosition(_currentPos, _currentMino.Shape)) {
+        TriggerGameOver();
+        return;
+      }
+
+      UpdateRenderedBoard();
+    }
+
     // ======内部処理======
     // テトリミノを落下させる
-    private void SpawnMino() {
-      _currentMino = Tetrimino.GetRandom();
-      _currentPos = new Vector2Int(width / 2 - 2, height - 2);
+    private void SpawnMino(bool resetHold = true) {
+      EnsureQueueCount(_previewCount + 1);
+
+      if (_nextQueue.Count == 0) {
+        return;
+      }
+
+      _currentMino = _nextQueue.Dequeue();
+      _currentPos = GetSpawnPosition();
+      if (resetHold) {
+        _hasHeldThisTurn = false;
+      }
 
       // ゲームオーバー処理
       if (!IsValidPosition(_currentPos, _currentMino.Shape)) {
@@ -132,6 +177,7 @@ namespace AlphaTetris {
         return;
       }
 
+      EnsureQueueCount(_previewCount + 1);
       UpdateRenderedBoard();
     }
 
@@ -272,6 +318,41 @@ namespace AlphaTetris {
       }
 
       OnBoardUpdated?.Invoke();
+    }
+
+    private void ResetQueuesAndHold() {
+      _nextQueue.Clear();
+      _nextPreview.Clear();
+      _holdMino = null;
+      _hasHeldThisTurn = false;
+      EnsureQueueCount(_previewCount + 1);
+    }
+
+    private void EnsureQueueCount(int requiredCount) {
+      int target = Mathf.Max(requiredCount, 0);
+      while (_nextQueue.Count < target) {
+        _nextQueue.Enqueue(Tetrimino.GetRandom());
+      }
+
+      UpdatePreviewCache();
+    }
+
+    private void UpdatePreviewCache() {
+      _nextPreview.Clear();
+      if (_previewCount <= 0) {
+        return;
+      }
+
+      foreach (var mino in _nextQueue) {
+        _nextPreview.Add(mino);
+        if (_nextPreview.Count >= _previewCount) {
+          break;
+        }
+      }
+    }
+
+    private Vector2Int GetSpawnPosition() {
+      return new Vector2Int(width / 2 - 2, height - 2);
     }
 
     // TODO デバッグ用

@@ -22,6 +22,9 @@ namespace AlphaTetris {
         if (kb.downArrowKey.wasPressedThisFrame) _gameLogic.SoftDrop();
         if (kb.zKey.wasPressedThisFrame) _gameLogic.RotateLeft();
         if (kb.xKey.wasPressedThisFrame) _gameLogic.RotateRight();
+        if (kb.cKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) {
+          _gameLogic.Hold();
+        }
       }
     }
   }
