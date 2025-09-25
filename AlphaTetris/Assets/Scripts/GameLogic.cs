@@ -29,22 +29,29 @@ namespace AlphaTetris {
     // イベント
     public event Action OnBoardUpdated;
     public event Action OnGameOver;
+    public event Action<GameState> OnStateChanged;
 
     private float _fallTimer;
     private float _fallInterval = 1f;
 
     private const int LevelInterval = 10;
 
+    private void SetState(GameState newState) {
+      CurrentState = newState;
+      OnStateChanged?.Invoke(newState);
+    }
+
+    private void TriggerGameOver() {
+      Debug.Log("GameOver");
+      SetState(GameState.GameOver);
+      OnGameOver?.Invoke();
+    }
+
     private void Start() {
       _board = new int[height, width];
       RenderBoard = new int[height, width];
 
-      OnGameOver += () => {
-        Debug.Log("GameOver");
-        CurrentState = GameState.GameOver;
-      };
-
-      CurrentState = GameState.PreGame;
+      SetState(GameState.PreGame);
       Debug.Log("Push Space button to play");
     }
 
@@ -65,7 +72,7 @@ namespace AlphaTetris {
     // ======API======
     //　ゲーム開始
     public void StartGame() {
-      if (CurrentState != GameState.PreGame) {
+      if (CurrentState == GameState.Playing) {
         return;
       }
 
@@ -83,7 +90,7 @@ namespace AlphaTetris {
       _fallInterval = 1f;
 
       // ゲーム開始
-      CurrentState = GameState.Playing;
+      SetState(GameState.Playing);
       SpawnMino();
       PrintBoardToConsole();
     }
@@ -121,7 +128,8 @@ namespace AlphaTetris {
 
       // ゲームオーバー処理
       if (!IsValidPosition(_currentPos, _currentMino.Shape)) {
-        OnGameOver?.Invoke();
+        TriggerGameOver();
+        return;
       }
 
       UpdateRenderedBoard();
@@ -252,12 +260,14 @@ namespace AlphaTetris {
         }
       }
 
-      foreach (var cell in Tetrimino.GetCells(_currentMino.Shape)) {
-        int x = _currentPos.x + cell.x;
-        int y = _currentPos.y + cell.y;
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-          // 落下中
-          RenderBoard[y, x] = 2;
+      if (CurrentState == GameState.Playing && _currentMino != null) {
+        foreach (var cell in Tetrimino.GetCells(_currentMino.Shape)) {
+          int x = _currentPos.x + cell.x;
+          int y = _currentPos.y + cell.y;
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            // 落下中
+            RenderBoard[y, x] = 2;
+          }
         }
       }
 

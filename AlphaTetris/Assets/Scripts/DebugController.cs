@@ -10,7 +10,7 @@ namespace AlphaTetris {
       var currentState = _gameLogic.CurrentState;
 
       // スペースキーでゲーム開始
-      if (currentState == GameLogic.GameState.PreGame && Keyboard.current.spaceKey.wasPressedThisFrame) {
+      if (currentState != GameLogic.GameState.Playing && Keyboard.current.spaceKey.wasPressedThisFrame) {
         _gameLogic.StartGame();
       }
 
