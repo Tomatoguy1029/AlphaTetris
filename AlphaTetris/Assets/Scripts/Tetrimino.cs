@@ -3,18 +3,41 @@ using UnityEngine;
 
 namespace AlphaTetris {
   public class Tetrimino {
-    public int[,] Shape;
+    public enum TetriminoType {
+      I,
+      O,
+      S,
+      Z,
+      J,
+      L,
+      T
+    }
 
-    // コンストラクタ
-    private Tetrimino(int[,] shape) {
-      this.Shape = shape;
+    public TetriminoType Type { get; }
+    public int[,] Shape { get; set; }
+
+    private Tetrimino(int[,] shape, TetriminoType type) {
+      Shape = shape;
+      Type = type;
+    }
+
+    public static Tetrimino Create(TetriminoType type) {
+      return new Tetrimino(CloneShape(Shapes[(int)type]), type);
     }
 
     // テトリミノのランダム生成
     // TODO 完全にランダムなので改善の余地あり
     public static Tetrimino GetRandom() {
-      var i = UnityEngine.Random.Range(0, Shapes.GetLength(0));
-      return new Tetrimino(Shapes[i]);
+      var type = (TetriminoType)UnityEngine.Random.Range(0, Shapes.Length);
+      return Create(type);
+    }
+
+    public Tetrimino FreshClone() {
+      return Create(Type);
+    }
+
+    public static int[,] GetPreviewShape(TetriminoType type) {
+      return Shapes[(int)type];
     }
 
     // ミノのブロックの相対座標を取得(左下基準)
@@ -52,6 +75,19 @@ namespace AlphaTetris {
       }
 
       return result;
+    }
+
+    private static int[,] CloneShape(int[,] source) {
+      int height = source.GetLength(0);
+      int width = source.GetLength(1);
+      var clone = new int[height, width];
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          clone[y, x] = source[y, x];
+        }
+      }
+
+      return clone;
     }
 
     private static readonly int[][,] Shapes = {

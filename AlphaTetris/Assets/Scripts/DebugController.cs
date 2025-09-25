@@ -10,7 +10,7 @@ namespace AlphaTetris {
       var currentState = _gameLogic.CurrentState;
 
       // スペースキーでゲーム開始
-      if (currentState == GameLogic.GameState.PreGame && Keyboard.current.spaceKey.wasPressedThisFrame) {
+      if (currentState != GameLogic.GameState.Playing && Keyboard.current.spaceKey.wasPressedThisFrame) {
         _gameLogic.StartGame();
       }
 
@@ -22,6 +22,9 @@ namespace AlphaTetris {
         if (kb.downArrowKey.wasPressedThisFrame) _gameLogic.SoftDrop();
         if (kb.zKey.wasPressedThisFrame) _gameLogic.RotateLeft();
         if (kb.xKey.wasPressedThisFrame) _gameLogic.RotateRight();
+        if (kb.cKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) {
+          _gameLogic.Hold();
+        }
       }
     }
   }
