@@ -3,115 +3,119 @@ using TMPro;
 
 namespace AlphaTetris {
   public class GameUIScreen : MonoBehaviour {
-    [SerializeField] private GameLogic _gameLogic;
-    [SerializeField] private GameObject _startPanel;
-    [SerializeField] private GameObject _gameOverPanel;
-    [SerializeField] private TextMeshProUGUI _hudScoreText;
-    [SerializeField] private TextMeshProUGUI _hudLevelText;
-    [SerializeField] private TextMeshProUGUI _hudLinesText;
-    [SerializeField] private TextMeshProUGUI _gameOverScoreText;
-    [SerializeField] private TextMeshProUGUI _gameOverLevelText;
-    [SerializeField] private TextMeshProUGUI _gameOverLinesText;
+    [SerializeField] private GameLogic gameLogic;
+    [SerializeField] private GameObject startPanel;
+    [SerializeField] private GameObject gameOverPanel;
+    [SerializeField] private TextMeshProUGUI hudScoreText;
+    [SerializeField] private TextMeshProUGUI hudLevelText;
+    [SerializeField] private TextMeshProUGUI hudLinesText;
+    [SerializeField] private TextMeshProUGUI gameOverScoreText;
+    [SerializeField] private TextMeshProUGUI gameOverLevelText;
+    [SerializeField] private TextMeshProUGUI gameOverLinesText;
 
     private void OnEnable() {
-      if (_gameLogic == null) {
+      if (gameLogic == null) {
         Debug.LogWarning("GameUIScreen: GameLogic reference is missing.");
         return;
       }
 
-      _gameLogic.OnStateChanged += HandleStateChanged;
-      _gameLogic.OnGameOver += HandleGameOver;
-      _gameLogic.OnBoardUpdated += HandleBoardUpdated;
+      // ゲームロジックの状態変化に合わせてUIを切り替える
+      gameLogic.OnStateChanged += OnState;
+      gameLogic.OnGameOver += OnGameOver;
+      gameLogic.OnBoardUpdated += OnBoard;
 
-      HandleStateChanged(_gameLogic.CurrentState);
-      UpdateHudTexts();
+      OnState(gameLogic.CurrentState);
+      RefreshHud();
     }
 
     private void OnDisable() {
-      if (_gameLogic == null) {
+      if (gameLogic == null) {
         return;
       }
 
-      _gameLogic.OnStateChanged -= HandleStateChanged;
-      _gameLogic.OnGameOver -= HandleGameOver;
-      _gameLogic.OnBoardUpdated -= HandleBoardUpdated;
+      gameLogic.OnStateChanged -= OnState;
+      gameLogic.OnGameOver -= OnGameOver;
+      gameLogic.OnBoardUpdated -= OnBoard;
     }
 
-    public void OnStartButtonPressed() {
-      StartGameFromUI();
+    public void StartPressed() {
+      StartGameUI();
     }
 
-    public void OnRetryButtonPressed() {
-      StartGameFromUI();
+    public void RetryPressed() {
+      StartGameUI();
     }
 
-    private void StartGameFromUI() {
-      if (_gameLogic == null) {
+    // UIボタン経由のゲーム開始
+    private void StartGameUI() {
+      if (gameLogic == null) {
         return;
       }
 
-      _gameLogic.StartGame();
+      gameLogic.StartGame();
     }
 
-    private void HandleStateChanged(GameLogic.GameState state) {
-      if (_startPanel != null) {
-        _startPanel.SetActive(state == GameLogic.GameState.PreGame);
+    private void OnState(GameLogic.GameState state) {
+      if (startPanel != null) {
+        startPanel.SetActive(state == GameLogic.GameState.PreGame);
       }
 
-      if (_gameOverPanel != null) {
-        _gameOverPanel.SetActive(state == GameLogic.GameState.GameOver);
+      if (gameOverPanel != null) {
+        gameOverPanel.SetActive(state == GameLogic.GameState.GameOver);
       }
 
       if (state != GameLogic.GameState.GameOver) {
-        UpdateGameOverTexts();
+        RefreshGameOver();
       }
     }
 
-    private void HandleGameOver() {
-      UpdateGameOverTexts();
+    private void OnGameOver() {
+      RefreshGameOver();
 
-      if (_gameOverPanel != null && !_gameOverPanel.activeSelf) {
-        _gameOverPanel.SetActive(true);
+      if (gameOverPanel != null && !gameOverPanel.activeSelf) {
+        gameOverPanel.SetActive(true);
       }
     }
 
-    private void HandleBoardUpdated() {
-      UpdateHudTexts();
+    private void OnBoard() {
+      RefreshHud();
     }
 
-    private void UpdateHudTexts() {
-      if (_gameLogic == null) {
+    // HUD上のスコア・レベル・ライン数を最新化
+    private void RefreshHud() {
+      if (gameLogic == null) {
         return;
       }
 
-      if (_hudScoreText != null) {
-        _hudScoreText.text = $"Score: {_gameLogic.Score}";
+      if (hudScoreText != null) {
+        hudScoreText.text = $"Score: {gameLogic.Score}";
       }
 
-      if (_hudLevelText != null) {
-        _hudLevelText.text = $"Level: {_gameLogic.Level}";
+      if (hudLevelText != null) {
+        hudLevelText.text = $"Level: {gameLogic.Level}";
       }
 
-      if (_hudLinesText != null) {
-        _hudLinesText.text = $"Lines: {_gameLogic.LinesCleared}";
+      if (hudLinesText != null) {
+        hudLinesText.text = $"Lines: {gameLogic.LinesCleared}";
       }
     }
 
-    private void UpdateGameOverTexts() {
-      if (_gameLogic == null) {
+    // リザルト表示を更新
+    private void RefreshGameOver() {
+      if (gameLogic == null) {
         return;
       }
 
-      if (_gameOverScoreText != null) {
-        _gameOverScoreText.text = $"Score: {_gameLogic.Score}";
+      if (gameOverScoreText != null) {
+        gameOverScoreText.text = $"Score: {gameLogic.Score}";
       }
 
-      if (_gameOverLevelText != null) {
-        _gameOverLevelText.text = $"Level: {_gameLogic.Level}";
+      if (gameOverLevelText != null) {
+        gameOverLevelText.text = $"Level: {gameLogic.Level}";
       }
 
-      if (_gameOverLinesText != null) {
-        _gameOverLinesText.text = $"Lines: {_gameLogic.LinesCleared}";
+      if (gameOverLinesText != null) {
+        gameOverLinesText.text = $"Lines: {gameLogic.LinesCleared}";
       }
     }
   }

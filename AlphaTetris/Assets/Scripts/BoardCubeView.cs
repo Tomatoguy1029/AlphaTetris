@@ -3,82 +3,84 @@ using UnityEngine;
 
 namespace AlphaTetris {
   public class BoardCubeView : MonoBehaviour {
-    [SerializeField] private GameLogic _gameLogic;
-    [SerializeField] private Transform _boardRoot;
-    [SerializeField] private GameObject _cellPrefab;
-    [SerializeField, Min(0.1f)] private float _cellSize = 1f;
-    [SerializeField] private Vector3 _originOffset = Vector3.zero;
-    [SerializeField] private Color _lockedColor = new Color(0.3f, 0.3f, 0.3f, 1f);
-    [SerializeField] private Color _activeColor = new Color(0.9f, 0.9f, 0.9f, 1f);
-    [SerializeField] private bool _drawBoundsGizmo = true;
-    [SerializeField] private bool _buildTray = true;
-    [SerializeField] private Color _trayColor = new Color(0.15f, 0.15f, 0.15f, 1f);
-    [SerializeField] private Material _trayMaterial;
-    [SerializeField, Min(0.01f)] private float _trayDepth = 0.4f;
-    [SerializeField, Min(0.01f)] private float _trayThickness = 0.1f;
-    [SerializeField, Min(0f)] private float _trayTopMargin = 0.5f;
+    [SerializeField] private GameLogic gameLogic;
+    [SerializeField] private Transform boardRoot;
+    [SerializeField] private GameObject cellPrefab;
+    [SerializeField, Min(0.1f)] private float cellSize = 1f;
+    [SerializeField] private Vector3 originOffset = Vector3.zero;
+    [SerializeField] private Color lockedColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+    [SerializeField] private Color activeColor = new Color(0.9f, 0.9f, 0.9f, 1f);
+    [SerializeField] private bool drawBoundsGizmo = true;
+    [SerializeField] private bool buildTray = true;
+    [SerializeField] private Color trayColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+    [SerializeField] private Material trayMaterial;
+    [SerializeField, Min(0.01f)] private float trayDepth = 0.4f;
+    [SerializeField, Min(0.01f)] private float trayThickness = 0.1f;
+    [SerializeField, Min(0f)] private float trayTopMargin = 0.5f;
 
     private static readonly int ColorId = Shader.PropertyToID("_Color");
-    private static Material _fallbackTrayMaterial;
+    private static Material fallbackTrayMaterial;
 
-    private readonly List<Renderer> _cells = new List<Renderer>();
-    private MaterialPropertyBlock _propertyBlock;
-    private int _cachedWidth;
-    private int _cachedHeight;
-    private Transform _trayRoot;
-    private readonly List<MeshRenderer> _trayRenderers = new List<MeshRenderer>();
-    private Material _trayRuntimeMaterial;
+    private readonly List<Renderer> cells = new List<Renderer>();
+    private MaterialPropertyBlock propertyBlock;
+    private int cachedWidth;
+    private int cachedHeight;
+    private Transform trayRoot;
+    private readonly List<MeshRenderer> trayRenderers = new List<MeshRenderer>();
+    private Material trayRuntimeMaterial;
 
     private void Awake() {
-      if (_boardRoot == null) {
-        _boardRoot = transform;
+      if (boardRoot == null) {
+        boardRoot = transform;
       }
     }
 
     private void OnEnable() {
-      if (_gameLogic == null) {
+      if (gameLogic == null) {
         Debug.LogWarning("BoardCubeView: GameLogic reference is missing.");
         return;
       }
 
-      BuildGridIfNeeded();
+      BuildGrid();
 
-      _gameLogic.OnBoardUpdated += HandleBoardUpdated;
-      _gameLogic.OnGameOver += HandleBoardUpdated;
-      HandleBoardUpdated();
+      // 盤面更新イベントに乗ってセル描画を同期する
+      gameLogic.OnBoardUpdated += SyncBoard;
+      gameLogic.OnGameOver += SyncBoard;
+      SyncBoard();
     }
 
     private void OnDisable() {
-      if (_gameLogic == null) {
+      if (gameLogic == null) {
         return;
       }
 
-      _gameLogic.OnBoardUpdated -= HandleBoardUpdated;
-      _gameLogic.OnGameOver -= HandleBoardUpdated;
+      gameLogic.OnBoardUpdated -= SyncBoard;
+      gameLogic.OnGameOver -= SyncBoard;
     }
 
     private void OnDestroy() {
-      if (_trayRuntimeMaterial != null) {
+      if (trayRuntimeMaterial != null) {
         if (Application.isPlaying) {
-          Destroy(_trayRuntimeMaterial);
+          Destroy(trayRuntimeMaterial);
         } else {
-          DestroyImmediate(_trayRuntimeMaterial);
+          DestroyImmediate(trayRuntimeMaterial);
         }
-        _trayRuntimeMaterial = null;
+        trayRuntimeMaterial = null;
       }
     }
 
-    private void BuildGridIfNeeded() {
-      if (_cellPrefab == null) {
+    // ゲームロジックの盤面サイズに合わせてセルを生成し直す
+    private void BuildGrid() {
+      if (cellPrefab == null) {
         Debug.LogError("BoardCubeView: Cell prefab is not assigned.");
         return;
       }
 
-      if (_gameLogic == null) {
+      if (gameLogic == null) {
         return;
       }
 
-      var board = _gameLogic.RenderBoard;
+      var board = gameLogic.RenderBoard;
       if (board == null) {
         return;
       }
@@ -86,55 +88,56 @@ namespace AlphaTetris {
       int height = board.GetLength(0);
       int width = board.GetLength(1);
 
-      if (width == _cachedWidth && height == _cachedHeight && _cells.Count == width * height) {
-        EnsureTray(width, height);
+      if (width == cachedWidth && height == cachedHeight && cells.Count == width * height) {
+        SyncTray(width, height);
         return;
       }
 
-      ClearExistingCells();
+      ClearCells();
 
-      _cachedWidth = width;
-      _cachedHeight = height;
+      cachedWidth = width;
+      cachedHeight = height;
 
       for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-          var cell = Instantiate(_cellPrefab, _boardRoot);
+          var cell = Instantiate(cellPrefab, boardRoot);
           cell.name = $"Cube_{x}_{y}";
           var transformCache = cell.transform;
-          transformCache.localPosition = _originOffset + new Vector3(x * _cellSize, y * _cellSize, 0f);
+          transformCache.localPosition = originOffset + new Vector3(x * cellSize, y * cellSize, 0f);
           transformCache.localRotation = Quaternion.identity;
-          transformCache.localScale = Vector3.one * _cellSize;
+          transformCache.localScale = Vector3.one * cellSize;
 
           var renderer = cell.GetComponentInChildren<Renderer>();
           if (renderer == null) {
             Debug.LogWarning($"BoardCubeView: Instantiated cell '{cell.name}' has no Renderer component.");
           }
 
-          _cells.Add(renderer);
+          cells.Add(renderer);
         }
       }
 
-      EnsureTray(width, height);
+      SyncTray(width, height);
     }
 
-    private void HandleBoardUpdated() {
-      if (_gameLogic == null) {
+    // 描画用セルの有効・色を盤面状態から反映する
+    private void SyncBoard() {
+      if (gameLogic == null) {
         return;
       }
 
-      var board = _gameLogic.RenderBoard;
+      var board = gameLogic.RenderBoard;
       if (board == null) {
-        DisableAllCells();
-        SetTrayActive(false);
+        HideCells();
+        ToggleTray(false);
         return;
       }
 
       int height = board.GetLength(0);
       int width = board.GetLength(1);
 
-      if (width != _cachedWidth || height != _cachedHeight || _cells.Count != width * height) {
-        BuildGridIfNeeded();
-        board = _gameLogic.RenderBoard;
+      if (width != cachedWidth || height != cachedHeight || cells.Count != width * height) {
+        BuildGrid();
+        board = gameLogic.RenderBoard;
         if (board == null) {
           return;
         }
@@ -142,18 +145,18 @@ namespace AlphaTetris {
         width = board.GetLength(1);
       }
 
-      EnsureTray(width, height);
+      SyncTray(width, height);
 
-      if (_propertyBlock == null) {
-        _propertyBlock = new MaterialPropertyBlock();
+      if (propertyBlock == null) {
+        propertyBlock = new MaterialPropertyBlock();
       }
 
       int index = 0;
       for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
           Renderer renderer = null;
-          if (index < _cells.Count) {
-            renderer = _cells[index];
+          if (index < cells.Count) {
+            renderer = cells[index];
           }
           index++;
 
@@ -168,20 +171,21 @@ namespace AlphaTetris {
           }
 
           renderer.enabled = true;
-          _propertyBlock.Clear();
-          var colorToApply = _lockedColor;
+          propertyBlock.Clear();
+          var colorToApply = lockedColor;
           if (value != 1) {
-            colorToApply = _activeColor;
+            colorToApply = activeColor;
           }
-          _propertyBlock.SetColor(ColorId, colorToApply);
-          renderer.SetPropertyBlock(_propertyBlock);
+          propertyBlock.SetColor(ColorId, colorToApply);
+          renderer.SetPropertyBlock(propertyBlock);
         }
       }
     }
 
-    private void ClearExistingCells() {
-      foreach (Transform child in _boardRoot) {
-        if (_trayRoot != null && child == _trayRoot) {
+    // セルとトレイをいったん破棄してクリーンな状態にする
+    private void ClearCells() {
+      foreach (Transform child in boardRoot) {
+        if (trayRoot != null && child == trayRoot) {
           continue;
         }
 
@@ -192,44 +196,46 @@ namespace AlphaTetris {
         }
       }
 
-      _cells.Clear();
-      _cachedWidth = 0;
-      _cachedHeight = 0;
-      SetTrayActive(false);
+      cells.Clear();
+      cachedWidth = 0;
+      cachedHeight = 0;
+      ToggleTray(false);
     }
 
-    private void DisableAllCells() {
-      foreach (var renderer in _cells) {
+    // セルを非表示にするだけで参照は残す
+    private void HideCells() {
+      foreach (var renderer in cells) {
         if (renderer != null) {
           renderer.enabled = false;
         }
       }
     }
 
-    private void EnsureTray(int width, int height) {
-      if (!_buildTray) {
-        SetTrayActive(false);
+    // 盤面サイズに合わせてトレイの有無と形状を更新する
+    private void SyncTray(int width, int height) {
+      if (!buildTray) {
+        ToggleTray(false);
         return;
       }
 
-      if (_trayRoot == null) {
-        _trayRoot = new GameObject("BoardTray").transform;
-        _trayRoot.SetParent(_boardRoot, false);
-        CreateTraySegments();
+      if (trayRoot == null) {
+        trayRoot = new GameObject("BoardTray").transform;
+        trayRoot.SetParent(boardRoot, false);
+        CreateTray();
       }
 
-      UpdateTray(width, height);
-      ApplyTrayMaterial();
-      SetTrayActive(true);
+      LayoutTray(width, height);
+      ApplyTray();
+      ToggleTray(true);
     }
 
-    private void CreateTraySegments() {
-      _trayRenderers.Clear();
+    private void CreateTray() {
+      trayRenderers.Clear();
       string[] names = { "TrayBottom", "TrayLeft", "TrayRight", "TrayBack" };
       for (int i = 0; i < names.Length; i++) {
         var segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
         segment.name = names[i];
-        segment.transform.SetParent(_trayRoot, false);
+        segment.transform.SetParent(trayRoot, false);
         var collider = segment.GetComponent<Collider>();
         if (collider != null) {
           if (Application.isPlaying) {
@@ -239,123 +245,126 @@ namespace AlphaTetris {
           }
         }
         var renderer = segment.GetComponent<MeshRenderer>();
-        _trayRenderers.Add(renderer);
+        trayRenderers.Add(renderer);
       }
     }
 
-    private void UpdateTray(int width, int height) {
-      if (_trayRoot == null) {
+    // トレイ各パーツの位置とスケールを計算
+    private void LayoutTray(int width, int height) {
+      if (trayRoot == null) {
         return;
       }
 
-      float boardWidth = width * _cellSize;
-      float boardHeight = height * _cellSize;
-      float wallThickness = _trayThickness;
-      float depth = _trayDepth;
-      float extraHeight = _trayTopMargin;
+      float boardWidth = width * cellSize;
+      float boardHeight = height * cellSize;
+      float wallThickness = trayThickness;
+      float depth = trayDepth;
+      float extraHeight = trayTopMargin;
       float halfWidth = boardWidth * 0.5f;
       float halfHeight = boardHeight * 0.5f;
-      Vector3 center = _originOffset + new Vector3((width - 1) * _cellSize * 0.5f, (height - 1) * _cellSize * 0.5f, 0f);
+      Vector3 center = originOffset + new Vector3((width - 1) * cellSize * 0.5f, (height - 1) * cellSize * 0.5f, 0f);
       float bottomY = center.y - halfHeight;
       float baseZ = depth * 0.5f;
 
-      Transform bottom = _trayRoot.GetChild(0);
+      Transform bottom = trayRoot.GetChild(0);
       bottom.localPosition = new Vector3(center.x, bottomY - wallThickness * 0.5f, baseZ);
       bottom.localScale = new Vector3(boardWidth + wallThickness * 2f, wallThickness, depth);
 
       float wallHeight = boardHeight + extraHeight;
       float wallCenterY = bottomY + wallHeight * 0.5f;
 
-      Transform left = _trayRoot.GetChild(1);
+      Transform left = trayRoot.GetChild(1);
       left.localPosition = new Vector3(center.x - halfWidth - wallThickness * 0.5f, wallCenterY, baseZ);
       left.localScale = new Vector3(wallThickness, wallHeight, depth);
 
-      Transform right = _trayRoot.GetChild(2);
+      Transform right = trayRoot.GetChild(2);
       right.localPosition = new Vector3(center.x + halfWidth + wallThickness * 0.5f, wallCenterY, baseZ);
       right.localScale = new Vector3(wallThickness, wallHeight, depth);
 
-      Transform back = _trayRoot.GetChild(3);
+      Transform back = trayRoot.GetChild(3);
       back.localPosition = new Vector3(center.x, wallCenterY, depth + wallThickness * 0.5f);
       back.localScale = new Vector3(boardWidth + wallThickness * 2f, wallHeight, wallThickness);
     }
 
-    private void ApplyTrayMaterial() {
-      if (_trayRenderers.Count == 0) {
+    // 共有マテリアルを用意してトレイに適用
+    private void ApplyTray() {
+      if (trayRenderers.Count == 0) {
         return;
       }
 
-      var sourceMaterial = _trayMaterial != null ? _trayMaterial : GetFallbackTrayMaterial();
-      if (_trayRuntimeMaterial == null || _trayRuntimeMaterial.shader != sourceMaterial.shader) {
-        if (_trayRuntimeMaterial != null) {
+      var sourceMaterial = trayMaterial != null ? trayMaterial : GetTrayFallback();
+      if (trayRuntimeMaterial == null || trayRuntimeMaterial.shader != sourceMaterial.shader) {
+        if (trayRuntimeMaterial != null) {
           if (Application.isPlaying) {
-            Destroy(_trayRuntimeMaterial);
+            Destroy(trayRuntimeMaterial);
           } else {
-            DestroyImmediate(_trayRuntimeMaterial);
+            DestroyImmediate(trayRuntimeMaterial);
           }
         }
-        _trayRuntimeMaterial = new Material(sourceMaterial);
+        trayRuntimeMaterial = new Material(sourceMaterial);
       }
 
-      _trayRuntimeMaterial.color = _trayColor;
+      trayRuntimeMaterial.color = trayColor;
 
-      foreach (var renderer in _trayRenderers) {
+      foreach (var renderer in trayRenderers) {
         if (renderer == null) {
           continue;
         }
-        renderer.sharedMaterial = _trayRuntimeMaterial;
+        renderer.sharedMaterial = trayRuntimeMaterial;
       }
     }
 
-    private void SetTrayActive(bool isActive) {
-      if (_trayRoot != null) {
-        _trayRoot.gameObject.SetActive(isActive && _buildTray);
+    private void ToggleTray(bool isActive) {
+      if (trayRoot != null) {
+        trayRoot.gameObject.SetActive(isActive && buildTray);
       }
     }
 
-    private static Material GetFallbackTrayMaterial() {
-      if (_fallbackTrayMaterial == null) {
+    private static Material GetTrayFallback() {
+      if (fallbackTrayMaterial == null) {
         const string shaderName = "Universal Render Pipeline/Lit";
         var shader = Shader.Find(shaderName);
         if (shader == null) {
-          _fallbackTrayMaterial = new Material(Shader.Find("Standard"));
+          fallbackTrayMaterial = new Material(Shader.Find("Standard"));
         } else {
-          _fallbackTrayMaterial = new Material(shader);
+          fallbackTrayMaterial = new Material(shader);
         }
       }
 
-      return _fallbackTrayMaterial;
+      return fallbackTrayMaterial;
     }
 
+// トレイの位置がScence画面で表示
 #if UNITY_EDITOR
     private void OnDrawGizmos() {
-      if (!_drawBoundsGizmo) {
+      if (!drawBoundsGizmo) {
         return;
       }
 
-      if (!TryGetBoardSize(out int width, out int height)) {
+      if (!TryGetSize(out int width, out int height)) {
         return;
       }
 
       Gizmos.color = Color.cyan;
-      var size = new Vector3(width * _cellSize, height * _cellSize, _cellSize);
-      var offset = _originOffset + new Vector3((width - 1) * _cellSize * 0.5f, (height - 1) * _cellSize * 0.5f, 0f);
+      var size = new Vector3(width * cellSize, height * cellSize, cellSize);
+      var offset = originOffset + new Vector3((width - 1) * cellSize * 0.5f, (height - 1) * cellSize * 0.5f, 0f);
       Gizmos.matrix = transform.localToWorldMatrix;
       Gizmos.DrawWireCube(offset, size);
     }
 
-    private bool TryGetBoardSize(out int width, out int height) {
+    private bool TryGetSize(out int width, out int height) {
       width = 0;
       height = 0;
 
-      if (_cachedWidth > 0 && _cachedHeight > 0) {
-        width = _cachedWidth;
-        height = _cachedHeight;
+      if (cachedWidth > 0 && cachedHeight > 0) {
+        width = cachedWidth;
+        height = cachedHeight;
         return true;
       }
 
-      if (_gameLogic != null) {
-        width = _gameLogic.width;
-        height = _gameLogic.height;
+      if (gameLogic != null) {
+        width = gameLogic.width;
+        height = gameLogic.height;
         if (width > 0 && height > 0) {
           return true;
         }
