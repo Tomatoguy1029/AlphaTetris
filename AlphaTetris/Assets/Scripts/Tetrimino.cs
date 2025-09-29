@@ -1,115 +1,117 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace AlphaTetris {
+  public enum TetriminoType {
+    I,
+    O,
+    S,
+    Z,
+    J,
+    L,
+    T
+  }
+
   public class Tetrimino {
+    public TetriminoType Type;  // 特定のミノ専用の判定(ex.Tスピン)用、view側での色やプレビュー用
     public int[,] Shape;
 
-    // コンストラクタ
-    private Tetrimino(int[,] shape) {
-      this.Shape = shape;
-    }
-
-    // テトリミノのランダム生成
-    // TODO 完全にランダムなので改善の余地あり
-    public static Tetrimino GetRandom() {
-      var i = UnityEngine.Random.Range(0, Shapes.GetLength(0));
-      return new Tetrimino(Shapes[i]);
-    }
-
-    // ミノのブロックの相対座標を取得(左下基準)
-    public static IEnumerable<Vector2Int> GetCells(int[,] s) {
-      for (var y = 0; y < s.GetLength(0); y++) {
-        for (int x = 0; x < s.GetLength(1); x++) {
-          if (s[y, x] == 1) {
-            yield return new Vector2Int(x, (s.GetLength(0) - 1) - y);
-          }
-        }
-      }
+    public static Tetrimino CreateByType(TetriminoType type) {
+      return new Tetrimino {
+        Type = type,
+        Shape = ShapeOf(type),
+      };
     }
 
     // テトリミノ回転後の盤面を取得
-    public int[,] Rotate(int dir) {
-      int n = Shape.GetLength(0);
-      int[,] result = new int[n, n];
+    // 時計回り (Clockwise)
+    public static int[,] RotateCw(int[,] shape) {
+      var n = shape.GetLength(0);
+      var result = new int[n, n];
 
-      if (dir > 0) {
-        // 時計回り
-        for (var y = 0; y < n; y++) {
-          for (var x = 0; x < n; x++) {
-            // (y,x) = (2,0) -> (0,0)
-            result[x, n - 1 - y] = Shape[y, x];
-          }
-        }
-      } else {
-        // 反時計回り
-        for (var y = 0; y < n; y++) {
-          for (var x = 0; x < n; x++) {
-            // (y,x) = (2,0) -> (2,2)
-            result[n - 1 - x, y] = Shape[y, x];
-          }
+      for (var y = 0; y < n; y++) {
+        for (var x = 0; x < n; x++) {
+          // (y,x) = (2,0) -> (0,0)
+          result[x, n - 1 - y] = shape[y, x];
         }
       }
 
       return result;
     }
 
-    private static readonly int[][,] Shapes = {
-      // I
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 1, 1, 1, 1 },
-        { 0, 0, 0, 0 },
-        { 0, 0, 0, 0 }
-      },
+    // 反時計回り (Counter ClockWise)
+    public static int[,] RotateCcw(int[,] shape) {
+      var n = shape.GetLength(0);
+      var result = new int[n, n];
 
-      // O
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 0, 1, 1, 0 },
-        { 0, 1, 1, 0 },
-        { 0, 0, 0, 0 }
-      },
-
-      // S
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 0, 1, 1, 0 },
-        { 1, 1, 0, 0 },
-        { 0, 0, 0, 0 }
-      },
-
-      // Z
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 1, 1, 0, 0 },
-        { 0, 1, 1, 0 },
-        { 0, 0, 0, 0 }
-      },
-
-      // J
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 1, 0, 0, 0 },
-        { 1, 1, 1, 0 },
-        { 0, 0, 0, 0 }
-      },
-
-      // L
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 0, 0, 1, 0 },
-        { 1, 1, 1, 0 },
-        { 0, 0, 0, 0 }
-      },
-
-      // T
-      new int[,] {
-        { 0, 0, 0, 0 },
-        { 0, 1, 0, 0 },
-        { 1, 1, 1, 0 },
-        { 0, 0, 0, 0 }
+      for (var y = 0; y < n; y++) {
+        for (var x = 0; x < n; x++) {
+          // (y,x) = (2,0) -> (0,0)
+          result[x, n - 1 - y] = shape[y, x];
+        }
       }
-    };
+
+      return result;
+    }
+
+    // ミノの二次元配列を取得
+    // Unity側で形と4×4の中での相対座標決めておけばいいからこれいらないかも？
+    // いやでも列の消去とか考えたら配列で管理する方がいいのか
+    // その場合[SerializeField]とかでミノのプレハブアタッチさせればいいんか？
+    private static int[,] ShapeOf(TetriminoType type) {
+      switch (type) {
+        case TetriminoType.I:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 1, 1, 1, 1 },
+            { 0, 0, 0, 0 },
+            { 0, 0, 0, 0 }
+          };
+        case TetriminoType.O:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 0, 1, 1, 0 },
+            { 0, 1, 1, 0 },
+            { 0, 0, 0, 0 }
+          };
+        case TetriminoType.S:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 0, 1, 1, 0 },
+            { 1, 1, 0, 0 },
+            { 0, 0, 0, 0 }
+          };
+        case TetriminoType.Z:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 1, 1, 0, 0 },
+            { 0, 1, 1, 0 },
+            { 0, 0, 0, 0 }
+          };
+        case TetriminoType.J:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 1, 0, 0, 0 },
+            { 1, 1, 1, 0 },
+            { 0, 0, 0, 0 }
+          };
+        case TetriminoType.L:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 0, 0, 1, 0 },
+            { 1, 1, 1, 0 },
+            { 0, 0, 0, 0 }
+          };
+        case TetriminoType.T:
+          return new int[,] {
+            { 0, 0, 0, 0 },
+            { 0, 1, 0, 0 },
+            { 1, 1, 1, 0 },
+            { 0, 0, 0, 0 }
+          };
+        default: throw new ArgumentOutOfRangeException();
+      }
+    }
   }
 }
