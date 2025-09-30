@@ -10,12 +10,24 @@ namespace AlphaTetris {
     [SerializeField] private Color _emptyColor = new Color(0f, 0f, 0f, 0f);
     [SerializeField] private Color _minoColor = Color.white;
     [SerializeField] private Vector2 _previewOffset = Vector2.zero;
+    [SerializeField] private bool _arrangeHorizontally = false;
+    [SerializeField] private float _previewSpacing = 8f;
+    [SerializeField] private bool _autoDisableContainerLayoutGroup = true;
+
+    private LayoutGroup _cachedLayoutGroup;
 
     private readonly List<MiniBoard> _miniBoards = new();
 
     private void Awake() {
       if (_container == null) {
         _container = (RectTransform)transform;
+      }
+
+      if (_autoDisableContainerLayoutGroup && _container != null) {
+        _cachedLayoutGroup = _container.GetComponent<LayoutGroup>();
+        if (_cachedLayoutGroup != null && _cachedLayoutGroup.enabled) {
+          _cachedLayoutGroup.enabled = false;
+        }
       }
 
       if (_cellPrefab != null) {
@@ -30,11 +42,15 @@ namespace AlphaTetris {
       EnsureMiniBoards(count);
 
       for (var i = 0; i < _miniBoards.Count; i++) {
+        var board = _miniBoards[i];
+        LayoutMiniBoard(board);
+        PositionMiniBoard(board, i);
+
         if (i < count && queue != null) {
-          _miniBoards[i].Root.gameObject.SetActive(true);
-          RenderMiniBoard(_miniBoards[i], queue[i]);
+          board.Root.gameObject.SetActive(true);
+          RenderMiniBoard(board, queue[i]);
         } else {
-          _miniBoards[i].Root.gameObject.SetActive(false);
+          board.Root.gameObject.SetActive(false);
         }
       }
     }
@@ -50,7 +66,10 @@ namespace AlphaTetris {
       }
 
       while (_miniBoards.Count < required) {
-        _miniBoards.Add(CreateMiniBoard(_miniBoards.Count));
+        var board = CreateMiniBoard(_miniBoards.Count);
+        _miniBoards.Add(board);
+        LayoutMiniBoard(board);
+        PositionMiniBoard(board, _miniBoards.Count - 1);
       }
 
       for (var i = _miniBoards.Count - 1; i >= required; i--) {
@@ -75,34 +94,17 @@ namespace AlphaTetris {
       rect.anchoredPosition = _previewOffset;
       rect.localScale = Vector3.one;
 
-      var cellSize = _cellPrefab != null ? _cellPrefab.rectTransform.sizeDelta : Vector2.zero;
-      if (cellSize == Vector2.zero) {
-        cellSize = new Vector2(_cellPrefab.rectTransform.rect.width, _cellPrefab.rectTransform.rect.height);
-      }
-      if (cellSize == Vector2.zero) {
-        cellSize = new Vector2(32f, 32f);
-      }
+      var miniBoard = new MiniBoard(rect) {
+        CellSize = ResolveCellSize()
+      };
 
-      var grid = rect.gameObject.AddComponent<GridLayoutGroup>();
-      grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
-      grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-      grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-      grid.constraintCount = 4;
-      grid.childAlignment = TextAnchor.UpperLeft;
-      grid.cellSize = cellSize;
-      grid.spacing = Vector2.zero;
-
-      rect.sizeDelta = cellSize * 4f;
-
-      var miniBoard = new MiniBoard(rect);
       for (var y = 0; y < 4; y++) {
         for (var x = 0; x < 4; x++) {
           var instance = Instantiate(_cellPrefab, rect);
           var childRect = instance.rectTransform;
-          childRect.anchorMin = childRect.anchorMax = new Vector2(0.5f, 0.5f);
-          childRect.pivot = new Vector2(0.5f, 0.5f);
-          childRect.anchoredPosition = Vector2.zero;
+          childRect.anchorMin = childRect.anchorMax = childRect.pivot = new Vector2(0.5f, 0.5f);
           childRect.localScale = Vector3.one;
+          childRect.sizeDelta = miniBoard.CellSize;
           instance.gameObject.SetActive(true);
           instance.raycastTarget = false;
           miniBoard.Cells.Add(instance);
@@ -119,8 +121,13 @@ namespace AlphaTetris {
         return;
       }
 
+      var template = _cellPrefab != null ? _cellPrefab.transform : null;
       for (var i = _container.childCount - 1; i >= 0; i--) {
         var child = _container.GetChild(i);
+        if (child == template) {
+          continue;
+        }
+
         if (Application.isPlaying) {
           Destroy(child.gameObject);
         } else {
@@ -129,6 +136,56 @@ namespace AlphaTetris {
       }
     }
 
+    private void LayoutMiniBoard(MiniBoard board) {
+      if (board == null || board.Root == null) {
+        return;
+      }
+
+      var cellSize = board.CellSize;
+      if (cellSize == Vector2.zero) {
+        cellSize = ResolveCellSize();
+        board.CellSize = cellSize;
+      }
+
+      var size = cellSize * 4f;
+      board.Root.sizeDelta = size;
+
+      var startX = -size.x * 0.5f + cellSize.x * 0.5f;
+      var startY = size.y * 0.5f - cellSize.y * 0.5f;
+      var index = 0;
+
+      for (var y = 0; y < 4; y++) {
+        for (var x = 0; x < 4; x++) {
+          if (index >= board.Cells.Count) {
+            return;
+          }
+
+          var rect = board.Cells[index++].rectTransform;
+          rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+          rect.anchoredPosition = new Vector2(startX + x * cellSize.x, startY - y * cellSize.y);
+          rect.sizeDelta = cellSize;
+        }
+      }
+    }
+
+    private void PositionMiniBoard(MiniBoard board, int index) {
+      if (board?.Root == null) {
+        return;
+      }
+
+      var size = board.Root.sizeDelta;
+      if (size == Vector2.zero) {
+        LayoutMiniBoard(board);
+        size = board.Root.sizeDelta;
+      }
+
+      var step = _arrangeHorizontally
+        ? new Vector2(size.x + _previewSpacing, 0f)
+        : new Vector2(0f, -(size.y + _previewSpacing));
+
+      board.Root.anchoredPosition = _previewOffset + step * index;
+      board.Root.SetSiblingIndex(index);
+    }
 
     private void RenderMiniBoard(MiniBoard board, Tetrimino tetrimino) {
       var shape = tetrimino.Shape;
@@ -142,6 +199,44 @@ namespace AlphaTetris {
       }
     }
 
+    private Vector2 ResolveCellSize() {
+      if (_cellPrefab == null) {
+        return new Vector2(32f, 32f);
+      }
+
+      var rect = _cellPrefab.rectTransform;
+      var size = rect.rect.size;
+      if (size == Vector2.zero) {
+        size = rect.sizeDelta;
+      }
+
+      if (size == Vector2.zero) {
+        size = new Vector2(32f, 32f);
+      }
+
+      return size;
+    }
+
+#if UNITY_EDITOR
+    private void OnValidate() {
+      if (_autoDisableContainerLayoutGroup) {
+        if (_container == null) {
+          _container = (RectTransform)transform;
+        }
+
+        var layout = _container != null ? _container.GetComponent<LayoutGroup>() : null;
+        if (layout != null && layout.enabled) {
+          layout.enabled = false;
+        }
+      }
+
+      for (var i = 0; i < _miniBoards.Count; i++) {
+        LayoutMiniBoard(_miniBoards[i]);
+        PositionMiniBoard(_miniBoards[i], i);
+      }
+    }
+#endif
+
     private sealed class MiniBoard {
       public MiniBoard(RectTransform root) {
         Root = root;
@@ -149,6 +244,8 @@ namespace AlphaTetris {
 
       public readonly RectTransform Root;
       public readonly List<Image> Cells = new();
+      public Vector2 CellSize;
     }
   }
 }
+

@@ -2180,7 +2180,7 @@ GameObject:
   - component: {fileID: 1678014072}
   - component: {fileID: 1678014073}
   m_Layer: 5
-  m_Name: NextPanel
+  m_Name: NextQueuePanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2226,12 +2226,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71207931d332440f5b96c1104f59064a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AlphaTetris.NextQueueView
-  _container: {fileID: 0}
+  _container: {fileID: 1678014069}
   _cellPrefab: {fileID: 1705464336}
   _previewCount: 3
   _emptyColor: {r: 0, g: 0, b: 0, a: 0}
   _minoColor: {r: 1, g: 1, b: 1, a: 1}
-  _previewOffset: {x: 0, y: 0}
+  _previewOffset: {x: 0, y: 330}
+  _arrangeHorizontally: 0
+  _previewSpacing: 1
+  _autoDisableContainerLayoutGroup: 1
 --- !u!114 &1678014072
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2239,7 +2242,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1678014068}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8a8695521f0d02e499659fee002a26c2, type: 3}
   m_Name: 
