@@ -50,3 +50,7 @@ Packages/packages-lock.json
 
 # Visual Studio Code
 .vscode/
+
+# Untrack Following Folders
+AlphaTetris/Assets/Settings/
+AlphaTetris/Assets/TextMesh Pro/

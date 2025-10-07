@@ -219,6 +219,7 @@ namespace AlphaTetris {
         SpawnMino();
       } else {
         var tmp = _holdMino;
+        _holdMino = _currentMino;
         _holdUsed = true;
         _currentMino = tmp;
         _currentPos = GetSpawnPosition(_currentMino);
